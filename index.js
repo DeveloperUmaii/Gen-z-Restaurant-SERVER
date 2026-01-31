@@ -2,6 +2,8 @@ const express = require("express");
 const app = express();
 
 const cors = require("cors");
+const jwt = require("jsonwebtoken"); //No.01_install No.02 const jwt = require('jsonwebtoken');
+
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
@@ -9,7 +11,9 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+// const { MongoClient, ServerApiVersion, |ObjectId delete korar jonne lagbe| } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb"); // ✅ ObjectId ইম্পোর্ট
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.yeymv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -27,28 +31,243 @@ async function run() {
     await client.connect();
 
     const menuCollection = client.db("genZrdb").collection("menu");
-    app.get('/menu', async (req, res ) => {
-        const result = await menuCollection.find().toArray();
-        res.send(result);
-    })
-
-
     const reviewsCollection = client.db("genZrdb").collection("reviews");
-    app.get('/reviews', async (req, res ) => {
-        const result = await reviewsCollection.find().toArray();
-        res.send(result);
-    })
+    const cartsCollection = client.db("genZrdb").collection("carts");
+    const userCollection = client.db("genZrdb").collection("users");
 
+    // ===============================
+    // 🔐 MIDDLEWARE SECTION (IMPORTANT)
+    // ===============================
+
+    // MiddleWere VERIFY
+    // ⬆️⬆️⬆️ এই middleware আগে আনা হয়েছে
+    // কারণ: const function hoist হয় না, route এর আগে থাকতে হবে
+    const verifyToken = (req, res, next) => {
+      console.log("inside verify Token", req.headers.authorization);
+
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden - access" });
+      }
+
+      const token = req.headers.authorization.split(" ")[1];
+
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(403).send({ message: "forbidden Access" });
+        }
+
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // VERIFY Admin MiddleWere (admin step no.4)
+    // ⬆️⬆️⬆️ এটাও route এর আগে আনা হয়েছে
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      const isAdmin = user?.role === "admin";
+
+      if (!isAdmin) {
+        return res
+          .status(403)
+          .send({ message: "forbidden access verify ADMIN false" });
+      }
+
+      next();
+    };
+
+    // ===============================
+    // 🔑 JWT API
+    // ===============================
+
+    // No 03.jwt Api make
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    // ===============================
+    // 📦 PUBLIC APIs MENU
+    // ===============================
+
+    // Data(Menu) Show in Ui (read)
+    app.get("/menu", async (req, res) => {
+      const result = await menuCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Single ID Data(Menu) Show in Ui (read)
+    app.get("/menu/:id", async (req, res) => {
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await menuCollection.findOne(query);
+      res.send(result);
+    });
+
+
+
+    // Data(Menu item Add) send data in mongoDB (read)
+    app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
+      const item = req.body;
+      const result = await menuCollection.insertOne(item);
+      res.send(result);
+    });
+
+    // MENU ITEM DELETE 
+    app.delete("/item/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Data(Reviews) Show in Ui (read)
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // ===============================
+    // 🛒 CART APIs
+    // ===============================
+
+    // Data(Profile) Show in Ui (read)
+    app.get("/carts", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await cartsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // Item Add
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartsCollection.insertOne(cartItem);
+      res.send(result);
+    });
+
+        // Patch MENU ITEM|Edit & Update  verifyToken, verifyAdmin, 
+    app.patch("/menu/:id",async (req, res) => {
+        const item = req.body;
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            name: item.name,
+            recipe: item.recipe,
+            image: item.image,
+            category: item.category,
+            price: item.price,
+          },
+        };
+
+        const result = await menuCollection.updateOne(filter, updateDoc );
+        res.send(result);
+      }
+    );
+
+    // Delete CART
+    app.delete("/carts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // ===============================
+    // 👤 USER APIs
+    // ===============================
+
+    //User Information Storage
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+
+      const existingUser = await userCollection.findOne(query);
+
+      if (existingUser) {
+        return res.send({ message: "User already exists", insertedId: null });
+      }
+
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // Dynamically Admin make with api (no.1)
+    // ⚠️ এই route এখন ঠিকমতো কাজ করবে
+    // Ui-তে ইউজারের Role করতে শো করতে get. Operation (এডমিন হলে :Admin / ইউজার হলে :User)
+    app.get("/user/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (email !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ message: "unauthorized access verify TOKEN False" });
+      }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      //[box] = |(user.role=admin)===("admin")| tahole box(admin--a [true] bosbo )
+      //PoliceNaki = Man?.idCardCharacter==='police'| ekhon jodi console.lg(Man?.idCardCharacter)
+      //                                                         :'police' hoy tahole milbo
+      //                                 R (PoliceNaki eidar ansr hoibo (true) mane asolei police
+      }
+
+      res.send({ admin });
+    });
+
+    // Patch USER|Make Admin USER|Click kore Admin a rupantor
+    app.patch(
+      "/users/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+
+        const updateDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+
+        const result = await userCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      }
+    );
+
+    // Delete USER
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Get ALL users (Admin only)
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    //////////////
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
   } finally {
-    // // // Ensures that the client will close when you finish/error 
-    // await client.close();
+    // await client.close(); // ❌ intentionally commented (server alive রাখতে)
   }
 }
+
 run().catch(console.dir);
 
 // Lower part
