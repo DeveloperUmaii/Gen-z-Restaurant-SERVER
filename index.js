@@ -1,4 +1,5 @@
 const express = require("express");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
 
 const cors = require("cors");
@@ -104,13 +105,11 @@ async function run() {
 
     // Single ID Data(Menu) Show in Ui (read)
     app.get("/menu/:id", async (req, res) => {
-      const id = req.params.id
-      const query = {_id: new ObjectId(id)}
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       const result = await menuCollection.findOne(query);
       res.send(result);
     });
-
-
 
     // Data(Menu item Add) send data in mongoDB (read)
     app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
@@ -119,7 +118,26 @@ async function run() {
       res.send(result);
     });
 
-    // MENU ITEM DELETE 
+    // Patch MENU ITEM|Edit & Update  verifyToken, verifyAdmin,
+    app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          name: item.name,
+          recipe: item.recipe,
+          image: item.image,
+          category: item.category,
+          price: item.price,
+        },
+      };
+
+      const result = await menuCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // MENU ITEM DELETE
     app.delete("/item/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -151,26 +169,6 @@ async function run() {
       const result = await cartsCollection.insertOne(cartItem);
       res.send(result);
     });
-
-        // Patch MENU ITEM|Edit & Update  verifyToken, verifyAdmin, 
-    app.patch("/menu/:id",async (req, res) => {
-        const item = req.body;
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: {
-            name: item.name,
-            recipe: item.recipe,
-            image: item.image,
-            category: item.category,
-            price: item.price,
-          },
-        };
-
-        const result = await menuCollection.updateOne(filter, updateDoc );
-        res.send(result);
-      }
-    );
 
     // Delete CART
     app.delete("/carts/:id", async (req, res) => {
@@ -217,10 +215,7 @@ async function run() {
       let admin = false;
       if (user) {
         admin = user?.role === "admin";
-      //[box] = |(user.role=admin)===("admin")| tahole box(admin--a [true] bosbo )
-      //PoliceNaki = Man?.idCardCharacter==='police'| ekhon jodi console.lg(Man?.idCardCharacter)
-      //                                                         :'police' hoy tahole milbo
-      //                                 R (PoliceNaki eidar ansr hoibo (true) mane asolei police
+        // note second commit
       }
 
       res.send({ admin });
@@ -228,7 +223,10 @@ async function run() {
 
     // Patch USER|Make Admin USER|Click kore Admin a rupantor
     app.patch(
-      "/users/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
 
@@ -255,6 +253,21 @@ async function run() {
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_Metod_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     //////////////
