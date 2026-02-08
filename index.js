@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
@@ -5,7 +6,7 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken"); //No.01_install No.02 const jwt = require('jsonwebtoken');
 
-require("dotenv").config();
+// require("dotenv").config();
 const port = process.env.PORT || 5000;
 
 //midleware
@@ -222,14 +223,9 @@ async function run() {
     });
 
     // Patch USER|Make Admin USER|Click kore Admin a rupantor
-    app.patch(
-      "/users/admin/:id",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
+    app.patch("/users/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
-
         const updateDoc = {
           $set: {
             role: "admin",
@@ -254,7 +250,7 @@ async function run() {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
-
+// POST API FOR PAYMENT
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
