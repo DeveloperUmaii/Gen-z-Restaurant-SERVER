@@ -36,6 +36,7 @@ async function run() {
     const reviewsCollection = client.db("genZrdb").collection("reviews");
     const cartsCollection = client.db("genZrdb").collection("carts");
     const userCollection = client.db("genZrdb").collection("users");
+    const paymentCollection = client.db("genZrdb").collection("payments");
 
     // ===============================
     // 🔐 MIDDLEWARE SECTION (IMPORTANT)
@@ -250,15 +251,15 @@ async function run() {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
-// POST API FOR PAYMENT
+
+    // POST API FOR CREATE PAYMENT Proccesh Successsfully
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
-
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
-        payment_Metod_types: ["card"],
+        payment_method_types: ["card"],
       });
 
       res.send({
@@ -266,6 +267,18 @@ async function run() {
       });
     });
 
+    // POST Payment History Data in Payments Collection
+    //const paymentCollection = client.db("genZrdb").collection("payments");
+    app.post('/payments', async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      const query = {_id: {
+        $in: payment.cartIds.map(id => new ObjectId(id))
+      }};
+
+      const deletePayementItem = await cartsCollection.deleteMany(query)
+      res.send(paymentResult,deletePayementItem);
+    });
     //////////////
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
