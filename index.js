@@ -49,14 +49,18 @@ async function run() {
       console.log("inside verify Token", req.headers.authorization);
 
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: "forbidden - access" });
+        return res
+          .status(401)
+          .send({ message: "forbidden - access Line 52 INDEX" });
       }
 
       const token = req.headers.authorization.split(" ")[1];
 
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status(403).send({ message: "forbidden Access" });
+          return res
+            .status(403)
+            .send({ message: "forbidden Access  LINE 59 INDX" });
         }
 
         req.decoded = decoded;
@@ -138,7 +142,9 @@ async function run() {
       const result = await menuCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
-
+    //--------------
+    //   ITEM
+    //--------------
     // MENU ITEM DELETE
     app.delete("/item/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -146,7 +152,9 @@ async function run() {
       const result = await menuCollection.deleteOne(query);
       res.send(result);
     });
-
+    // ------------------------------
+    //        Review
+    // ------------------------------
     // Data(Reviews) Show in Ui (read)
     app.get("/reviews", async (req, res) => {
       const result = await reviewsCollection.find().toArray();
@@ -290,30 +298,14 @@ async function run() {
     });
 
     // PAYMENT HISTORY GET Ui Show
-    // app.get("/paymenthistory/:email", async (req, res) => {
-    //   const query = {email: req.params.email}
-    //     // if (req.params.email !== req.decoded.email) {
-    //     //   return res.stutas(403).send({message: 'forbidden access'});
-    //     // }
-    //   const result = await paymentCollection.find(query).toArray();
-    //   res.send(result);
-    // });
-
-    // app.get("/paymenthistory", verifyToken, async (req, res) => {
-    //   const userEmail = req.decoded.email; // token থেকে আসবে
-
-    //   const query = { email: userEmail };
-    //   const result = await paymentCollection.find(query).toArray();
-
-    //   res.send(result);
-    // });
-
-    // app.get("/paymenthistory/:email", async (req, res) => {
-
-    app.get("/paymenthistory", async (req, res) => {
-      // const query = { email: req.query.email };
-      const result = await paymentCollection.find().toArray();
-      // const result = await paymentCollection.find(query).toArray();
+    app.get("/paymenthistory/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res
+          .stutas(403)
+          .send({ message: "forbidden access LINE 300 INDX" });
+      }
+      const result = await paymentCollection.find(query).toArray();
       res.send(result);
     });
 
