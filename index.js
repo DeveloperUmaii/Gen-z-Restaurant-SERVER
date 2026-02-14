@@ -224,7 +224,11 @@ async function run() {
     });
 
     // Patch USER|Make Admin USER|Click kore Admin a rupantor
-    app.patch("/users/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updateDoc = {
@@ -235,7 +239,7 @@ async function run() {
 
         const result = await userCollection.updateOne(filter, updateDoc);
         res.send(result);
-      }
+      },
     );
 
     // Delete USER
@@ -269,21 +273,35 @@ async function run() {
 
     // POST Payment History Data in Payments Collection
     //const paymentCollection = client.db("genZrdb").collection("payments");
-    app.post('/payments', async (req, res) => {
+    app.post("/payments", async (req, res) => {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
-      const query = {_id: {
-        $in: payment.cartIds.map(id => new ObjectId(id))
-      }};
 
-      const deletePayementItem = await cartsCollection.deleteMany(query)
-      res.send(paymentResult,deletePayementItem);
+      //now delete PAID item from cart
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const deletePayementItem = await cartsCollection.deleteMany(query);
+      res.send(paymentResult, deletePayementItem);
     });
+
+    // PAYMENT HISTORY GET Ui Show
+    app.get("/paymenthistory/:email", async (req, res) => {
+      const query = {email: req.params.email}
+        // if (req.params.email !== req.decoded.email) {
+        //   return res.stutas(403).send({message: 'forbidden access'});
+        // }
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
     //////////////
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
+      "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
     // await client.close(); // ❌ intentionally commented (server alive রাখতে)
