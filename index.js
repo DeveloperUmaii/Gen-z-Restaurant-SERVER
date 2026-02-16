@@ -316,16 +316,19 @@ async function run() {
       const Coustomers = await userCollection.estimatedDocumentCount();
       const products = await menuCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
-
-      const payments = await paymentCollection.find().toArray();
-      const revenue = payments.reduce((total, payment) => total + payment.price, 0);
-
+      
+          // 👉 total revenue (সব price যোগ)
+      const revenueResult = await paymentCollection.aggregate([{ $group: { _id: null, totalRevenue: { $sum: '$price' } } }]).toArray();
+      const revenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;  // 👉 যদি কোনো payment না থাকে তখন 0
+    
+      const payments = await paymentCollection.find().toArray();            //------------Not Preffer
+      const revenueP = payments.reduce((total, payment) => total + payment.price, 0); //--Not Preffer
         res.send({
           Coustomers,
           products,
           orders,
           revenue,
-          payments,
+          revenueP,
         })
       })
 
