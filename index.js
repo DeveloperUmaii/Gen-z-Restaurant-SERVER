@@ -309,6 +309,26 @@ async function run() {
       res.send(result);
     });
 
+  //-----------------------------------------
+  //    Stats Analytics for ADMIN Home
+  //-----------------------------------------
+    app.get('/admin-stats', async (req, res) => {
+      const Coustomers = await userCollection.estimatedDocumentCount();
+      const products = await menuCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+
+      const payments = await paymentCollection.find().toArray();
+      const revenue = payments.reduce((total, payment) => total + payment.price, 0);
+
+        res.send({
+          Coustomers,
+          products,
+          orders,
+          revenue,
+          payments,
+        })
+      })
+
     //////////////
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
