@@ -334,7 +334,7 @@ async function run() {
       });
     });
     //----------------------------------------------------
-    //
+    //    ORDER STATS with MongoDB $Operator In BackEnd
     //----------------------------------------------------
     app.get("/order-stat", async (req, res) => {
       const result = await paymentCollection
@@ -357,9 +357,8 @@ async function run() {
           {
             $group: {
               _id: '$orderMenuItems.category',
-                quantity:{
-                  $sum:1
-                }
+                quantity:{ $sum:1 },
+                revenue: {$sum: '$orderMenuItems.price'}
             }
           }
         ])
