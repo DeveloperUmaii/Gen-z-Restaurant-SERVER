@@ -309,28 +309,64 @@ async function run() {
       res.send(result);
     });
 
-  //-----------------------------------------
-  //    Stats Analytics for ADMIN Home
-  //-----------------------------------------
-    app.get('/admin-stats', async (req, res) => {
-      const Coustomers = await userCollection.estimatedDocumentCount();
+    //-----------------------------------------
+    //    Stats Analytics for ADMIN Home
+    //-----------------------------------------
+    app.get("/admin-stats", async (req, res) => {
+      const customers = await userCollection.estimatedDocumentCount();
       const products = await menuCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
-      
-          // 👉 total revenue (সব price যোগ)
-      const revenueResult = await paymentCollection.aggregate([{ $group: { _id: null, totalRevenue: { $sum: '$price' } } }]).toArray();
-      const revenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;  // 👉 যদি কোনো payment না থাকে তখন 0
-    
-      const payments = await paymentCollection.find().toArray();            //------------Not Preffer
-      const revenueP = payments.reduce((total, payment) => total + payment.price, 0); //--Not Preffer
-        res.send({
-          Coustomers,
-          products,
-          orders,
-          revenue,
-          revenueP,
-        })
-      })
+
+      // 👉 total revenue (সব price যোগ)
+      const revenueResult = await paymentCollection
+        .aggregate([
+          { $group: { _id: null, totalRevenue: { $sum: "$price" } } },
+        ])
+        .toArray();
+      const revenue =
+        revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0; // 👉 যদি কোনো payment না থাকে তখন 0
+
+      res.send({
+        customers,
+        products,
+        orders,
+        revenue,
+      });
+    });
+    //----------------------------------------------------
+    //
+    //----------------------------------------------------
+    app.get("/order-stat", async (req, res) => {
+      const result = await paymentCollection
+        .aggregate([
+          { $unwind: "$menuIds" },
+          {
+            $addFields: {
+              menuObjectId: { $toObjectId: "$menuIds" },
+            },
+          },
+          {
+            $lookup: {
+              from: "menu",
+              localField: "menuObjectId",
+              foreignField: "_id",
+              as: "orderMenuItems",
+            },
+          },
+          { $unwind: "$orderMenuItems" },
+          {
+            $group: {
+              _id: '$orderMenuItems.category',
+                quantity:{
+                  $sum:1
+                }
+            }
+          }
+        ])
+        .toArray();
+
+      res.send(result);
+    });
 
     //////////////
     // Send a ping to confirm a successful connection
