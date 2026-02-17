@@ -334,7 +334,7 @@ async function run() {
       });
     });
     //----------------------------------------------------
-    //    ORDER STATS with MongoDB $Operator In BackEnd
+    //   ORDER STATS with MongoDB $Operator In BackEnd
     //----------------------------------------------------
     app.get("/order-stat", async (req, res) => {
       const result = await paymentCollection
@@ -356,11 +356,28 @@ async function run() {
           { $unwind: "$orderMenuItems" },
           {
             $group: {
-              _id: '$orderMenuItems.category',
-                quantity:{ $sum:1 },
-                revenue: {$sum: '$orderMenuItems.price'}
-            }
-          }
+              _id: "$orderMenuItems.category",
+              quantity: { $sum: 1 },
+              revenue: { $sum: "$orderMenuItems.price" },
+            },
+          },
+          //{ $sort: { quantity: -1 },} // চাইলে sort 
+          // {
+          //   $setWindowFields: {
+          //     sortBy: { quantity: -1 },
+          //     output: {
+          //       serial: { $documentNumber: {} }, // এইটা 1,2,3...
+          //     },
+          //   },
+          // },
+          {
+            $project: {
+              _id: "$serial",
+              categoryName: "$_id",
+              quantity: 1,
+              revenue: 1,
+            },
+          },
         ])
         .toArray();
 
