@@ -312,17 +312,15 @@ async function run() {
     //-----------------------------------------
     //    Stats Analytics for ADMIN Home
     //-----------------------------------------
-    app.get("/admin-stats", async (req, res) => {
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const customers = await userCollection.estimatedDocumentCount();
       const products = await menuCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
 
       // 👉 total revenue (সব price যোগ)
-      const revenueResult = await paymentCollection
-        .aggregate([
+      const revenueResult = await paymentCollection.aggregate([
           { $group: { _id: null, totalRevenue: { $sum: "$price" } } },
-        ])
-        .toArray();
+        ]).toArray();
       const revenue =
         revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0; // 👉 যদি কোনো payment না থাকে তখন 0
 
@@ -333,12 +331,23 @@ async function run() {
         revenue,
       });
     });
+
+    //-----------------------------------------
+    //    Stats Analytics for ADMIN Home
+    //-----------------------------------------
+    app.get("/user-stats",  async (req, res) => {
+      const menu = await menuCollection.estimatedDocumentCount();
+      const shop = await paymentCollection.estimatedDocumentCount();
+      res.send({
+        menu,
+        shop,
+      });
+    });
     //----------------------------------------------------
     //   ORDER STATS with MongoDB $Operator In BackEnd
     //----------------------------------------------------
     app.get("/order-stat", async (req, res) => {
-      const result = await paymentCollection
-        .aggregate([
+      const result = await paymentCollection.aggregate([
           { $unwind: "$menuIds" },
           {
             $addFields: {
