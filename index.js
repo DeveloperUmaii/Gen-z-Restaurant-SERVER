@@ -408,10 +408,38 @@ async function run() {
 
 //    User home USER Activities
 // -------------------------------
-    app.get('/user-stat-order-single-product-count/:email', async(req, res) => {
-      const userOrder = await paymentCollection.estimatedDocumentCount(); 
-      res.send({userOrder});
-    })
+    // app.get('/user-stat-order-single-product-count/:email', async(req, res) => {
+    //   const userOrder = await paymentCollection.estimatedDocumentCount(); 
+    //   res.send({userOrder});
+    // })
+app.get('/user-stat-order-single-product-count/:email', async (req, res) => {
+  const email = req.params.email;
+        const menu = await menuCollection.estimatedDocumentCount();
+      const shop = await paymentCollection.estimatedDocumentCount();
+      const reviews = await reviewsCollection.estimatedDocumentCount();
+            // const contact = await contactCollection.estimatedDocumentCount();
+  const result = await paymentCollection.aggregate([
+    { $match: { email: email } },
+    {
+      $project: {
+        itemCount: {
+          $size: { $ifNull: ["$menuIds", []] }
+        }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: "$itemCount" }
+      }
+    }
+  ]).toArray();
+
+  const totalOrders = result[0]?.totalOrders || 0;
+
+  res.send({ totalOrders, menu, shop, reviews });
+});
+
 
     //////////////
     // Send a ping to confirm a successful connection
