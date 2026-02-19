@@ -309,9 +309,20 @@ async function run() {
       res.send(result);
     });
 
-    //-----------------------------------------
-    //    Stats Analytics for ADMIN Home
-    //-----------------------------------------
+    // app.get("/order/:email", verifyToken, async (req, res) => {
+    //   const query = { email: req.params.email };
+    //   if (req.params.email !== req.decoded.email) {
+    //     return res
+    //       .stutas(403)
+    //       .send({ message: "forbidden access LINE 300 INDX" });
+    //   }
+    //   const result = await paymentCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+    
+//=========================================
+//  ADMIN HOME  Stats Analytics for ADMIN Home
+//=========================================
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const customers = await userCollection.estimatedDocumentCount();
       const products = await menuCollection.estimatedDocumentCount();
@@ -332,21 +343,10 @@ async function run() {
       });
     });
 
-    //-----------------------------------------
-    //    Stats Analytics for ADMIN Home
-    //-----------------------------------------
-    app.get("/user-stats",  async (req, res) => {
-      const menu = await menuCollection.estimatedDocumentCount();
-      const shop = await paymentCollection.estimatedDocumentCount();
-      res.send({
-        menu,
-        shop,
-      });
-    });
-    //----------------------------------------------------
-    //   ORDER STATS with MongoDB $Operator In BackEnd
-    //----------------------------------------------------
-    app.get("/order-stat", async (req, res) => {
+
+      //   ORDER Chart STATS with MongoDB $Operator In BackEnd
+      //----------------------------------------------------
+    app.get("/order-stat",  async (req, res) => {
       const result = await paymentCollection.aggregate([
           { $unwind: "$menuIds" },
           {
@@ -392,6 +392,26 @@ async function run() {
 
       res.send(result);
     });
+//-----------------------------------------
+//  USER HOME  Stats Analytics for USER Home
+//-----------------------------------------
+    app.get("/user-stats",  async (req, res) => {
+      const menu = await menuCollection.estimatedDocumentCount();
+      const shop = await paymentCollection.estimatedDocumentCount();
+      // const contact = await contactCollection.estimatedDocumentCount();
+      res.send({
+        menu,
+        shop,
+        // contact,
+      });
+    });
+
+//    User home USER Activities
+// -------------------------------
+    app.get('/user-stat-order-single-product-count/:email', async(req, res) => {
+      const userOrder = await paymentCollection.estimatedDocumentCount(); 
+      res.send({userOrder});
+    })
 
     //////////////
     // Send a ping to confirm a successful connection
