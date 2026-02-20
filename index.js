@@ -308,7 +308,14 @@ async function run() {
       const result = await paymentCollection.find(query).toArray();
       res.send(result);
     });
-
+//======================================================
+// REVIEW
+//======================================================
+    app.post('/reviews', async (req, res)=>{
+      const reviewdata = req.body;
+      const reviews = await reviewsCollection.insertOne(reviewdata);
+      res.send(reviews);
+    })
     // app.get("/order/:email", verifyToken, async (req, res) => {
     //   const query = { email: req.params.email };
     //   if (req.params.email !== req.decoded.email) {
@@ -319,21 +326,29 @@ async function run() {
     //   const result = await paymentCollection.find(query).toArray();
     //   res.send(result);
     // });
-    
-//=========================================
-//  ADMIN HOME  Stats Analytics for ADMIN Home
-//=========================================
+
+    //=========================================
+    //  ADMIN HOME Top Badge Stats Analytics for ADMIN Home
+    //=========================================
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const customers = await userCollection.estimatedDocumentCount();
       const products = await menuCollection.estimatedDocumentCount();
-      const orders = await paymentCollection.estimatedDocumentCount();
+      const result = await paymentCollection.aggregate([
+            {
+              $project: {   itemCount:  { $size: { $ifNull: ["$menuIds", []] },  },   },
+            },
+            {
+              $group: {    _id: null, orders:  { $sum: "$itemCount" },    },
+            },
+              ]).toArray();
+
+            const orders = result[0]?.orders || 0;
 
       // 👉 total revenue (সব price যোগ)
       const revenueResult = await paymentCollection.aggregate([
           { $group: { _id: null, totalRevenue: { $sum: "$price" } } },
         ]).toArray();
-      const revenue =
-        revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0; // 👉 যদি কোনো payment না থাকে তখন 0
+            const revenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0; // 👉 যদি কোনো payment না থাকে তখন 0
 
       res.send({
         customers,
@@ -343,10 +358,9 @@ async function run() {
       });
     });
 
-
-      //   ORDER Chart STATS with MongoDB $Operator In BackEnd
-      //----------------------------------------------------
-    app.get("/order-stat",  async (req, res) => {
+    //   ORDER for Pie and Bar Chart STATS with MongoDB $Operator In BackEnd
+    //----------------------------------------------------
+    app.get("/order-stat", async (req, res) => {
       const result = await paymentCollection.aggregate([
           { $unwind: "$menuIds" },
           {
@@ -370,7 +384,7 @@ async function run() {
               revenue: { $sum: "$orderMenuItems.price" },
             },
           },
-          //{ $sort: { quantity: -1 },} // চাইলে sort 
+          //{ $sort: { quantity: -1 },} // চাইলে sort
           // {
           //   $setWindowFields: {
           //     sortBy: { quantity: -1 },
@@ -392,13 +406,31 @@ async function run() {
 
       res.send(result);
     });
-//-----------------------------------------
-//  USER HOME  Stats Analytics for USER Home
-//-----------------------------------------
-    app.get("/user-stats",  async (req, res) => {
+    //-----------------------------------------
+    //  USER HOME  Stats Analytics for USER Home
+    //-----------------------------------------
+    app.get("/user-stats", async (req, res) => {
       const menu = await menuCollection.estimatedDocumentCount();
-      const shop = await paymentCollection.estimatedDocumentCount();
       // const contact = await contactCollection.estimatedDocumentCount();
+              
+        const result = await paymentCollection.aggregate([
+            {
+              $project: {
+                itemCount: {
+                  $size: { $ifNull: ["$menuIds", []] },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                shop: { $sum: "$itemCount" },
+              },
+            },
+          ])
+          .toArray();
+
+        const shop = result[0]?.shop || 0;
       res.send({
         menu,
         shop,
@@ -406,40 +438,41 @@ async function run() {
       });
     });
 
-//    User home USER Activities
-// -------------------------------
+    //    User home USER Activities
+    // -------------------------------
     // app.get('/user-stat-order-single-product-count/:email', async(req, res) => {
-    //   const userOrder = await paymentCollection.estimatedDocumentCount(); 
+    //   const userOrder = await paymentCollection.estimatedDocumentCount();
     //   res.send({userOrder});
     // })
-app.get('/user-stat-order-single-product-count/:email', async (req, res) => {
-  const email = req.params.email;
-        const menu = await menuCollection.estimatedDocumentCount();
-      const shop = await paymentCollection.estimatedDocumentCount();
-      const reviews = await reviewsCollection.estimatedDocumentCount();
-            // const contact = await contactCollection.estimatedDocumentCount();
-  const result = await paymentCollection.aggregate([
-    { $match: { email: email } },
-    {
-      $project: {
-        itemCount: {
-          $size: { $ifNull: ["$menuIds", []] }
-        }
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        totalOrders: { $sum: "$itemCount" }
-      }
-    }
-  ]).toArray();
+    app.get("/user-stat-order-single-product-count/:email", async (req, res) => {
+        const email = req.params.email;
+        const myPayment = await paymentCollection.countDocuments({ email });
+        const myReviews = await reviewsCollection.countDocuments({ email });
+       // const myBookings = await bookingsCollection.countDocuments({ email });
+        
+        const result = await paymentCollection
+          .aggregate([
+            { $match: { email: email } },
+            {
+              $project: {
+                itemCount: {
+                  $size: { $ifNull: ["$menuIds", []] },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                myOrders: { $sum: "$itemCount" },
+              },
+            },
+          ])
+          .toArray();
 
-  const totalOrders = result[0]?.totalOrders || 0;
-
-  res.send({ totalOrders, menu, shop, reviews });
-});
-
+        const myOrders = result[0]?.myOrders || 0;
+        res.send({ myOrders, myPayment, myReviews });
+      },
+    );
 
     //////////////
     // Send a ping to confirm a successful connection
