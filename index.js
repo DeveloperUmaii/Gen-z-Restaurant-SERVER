@@ -37,6 +37,7 @@ async function run() {
     const cartsCollection = client.db("genZrdb").collection("carts");
     const userCollection = client.db("genZrdb").collection("users");
     const paymentCollection = client.db("genZrdb").collection("payments");
+    const contactCollection = client.db("genZrdb").collection("contacts");
 
     // ===============================
     // 🔐 MIDDLEWARE SECTION (IMPORTANT)
@@ -100,9 +101,18 @@ async function run() {
     });
 
     // ===============================
+    // 📦 PUBLIC APIs CONTACT
+    // ===============================
+    app.post('/contactUs', async(req, res) => {
+      const contactData = req.body;
+      const result = await contactCollection.insertOne(contactData);
+      res.send(result);
+    });
+
+    // ===============================
     // 📦 PUBLIC APIs MENU
     // ===============================
-
+    
     // Data(Menu) Show in Ui (read)
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
@@ -411,7 +421,7 @@ async function run() {
     //-----------------------------------------
     app.get("/user-stats", async (req, res) => {
       const menu = await menuCollection.estimatedDocumentCount();
-      // const contact = await contactCollection.estimatedDocumentCount();
+      const contact = await contactCollection.estimatedDocumentCount();
               
         const result = await paymentCollection.aggregate([
             {
@@ -434,7 +444,7 @@ async function run() {
       res.send({
         menu,
         shop,
-        // contact,
+        contact,
       });
     });
 
